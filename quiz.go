@@ -45,6 +45,8 @@ func (q *Quiz) serveQuiz() {
 		name   string
 		answer string
 	})
+	defer close(q.IncomingAnswers)
+
 	for _, question := range q.Questions {
 		func() {
 			timer := time.NewTimer(30 * time.Second)
