@@ -24,27 +24,27 @@ type Question struct {
 	IncorrectAnswers []string `json:"incorrect_answers"`
 }
 
-//
+type UserAnswer struct {
+	name   string
+	answer string
+}
+
+type Message struct {
+	chatID  int64
+	message string
+}
+
 type Quiz struct {
 	ChatID           int64
 	Questions        []Question
-	OutgoingMessages chan struct {
-		chatID  int64
-		message string
-	}
-	IncomingAnswers chan struct {
-		name   string
-		answer string
-	}
-	DoneQuiz chan int64
+	OutgoingMessages chan Message
+	IncomingAnswers  chan UserAnswer
+	DoneQuiz         chan int64
 }
 
 func (q *Quiz) serveQuiz() {
 	q.Questions, _ = q.requestQuestions()
-	q.IncomingAnswers = make(chan struct {
-		name   string
-		answer string
-	})
+	q.IncomingAnswers = make(chan UserAnswer)
 	defer close(q.IncomingAnswers)
 
 	for _, question := range q.Questions {
@@ -53,44 +53,35 @@ func (q *Quiz) serveQuiz() {
 			defer timer.Stop()
 
 			message := question.Question + "\r\n" + q.getAllAnswers(question.IncorrectAnswers, question.CorrectAnswer)
-			q.OutgoingMessages <- struct {
-				chatID  int64
-				message string
-			}{chatID: q.ChatID, message: message}
+			q.OutgoingMessages <- Message{chatID: q.ChatID, message: message}
 			for {
 				select {
 				case userAnswer := <-q.IncomingAnswers:
-					if strings.ToLower(userAnswer.answer) == strings.ToLower(html.UnescapeString(strings.TrimSpace(question.CorrectAnswer))) {
-						q.OutgoingMessages <- struct {
-							chatID  int64
-							message string
-						}{chatID: q.ChatID, message: "Correct"}
+					if sameAnswer(userAnswer.answer, question.CorrectAnswer) {
+						q.OutgoingMessages <- Message{chatID: q.ChatID, message: "Correct"}
 					} else {
-						q.OutgoingMessages <- struct {
-							chatID  int64
-							message string
-						}{chatID: q.ChatID, message: "Wrong, correct answer is " + question.CorrectAnswer}
+						q.OutgoingMessages <- Message{chatID: q.ChatID,
+							message: "Wrong, correct answer is " + question.CorrectAnswer}
 					}
 					return
 				case <-timer.C:
-					q.OutgoingMessages <- struct {
-						chatID  int64
-						message string
-					}{chatID: q.ChatID, message: "No one answered the question. The correct answer is " + question.CorrectAnswer}
+					q.OutgoingMessages <- Message{chatID: q.ChatID,
+						message: "No one answered the question. The correct answer is " +
+							"\"" + question.CorrectAnswer + "\""}
 					return
 				}
 			}
 		}()
 	}
 	q.DoneQuiz <- q.ChatID
-	q.OutgoingMessages <- struct {
-		chatID  int64
-		message string
-	}{chatID: q.ChatID, message: "Quiz has ended!"}
+	q.OutgoingMessages <- Message{chatID: q.ChatID, message: "Quiz has ended!"}
 }
 
 func (q *Quiz) requestQuestions() ([]Question, error) {
-	resp, err := http.Get("https://opentdb.com/api.php?amount=2")
+	resp, err := http.Get("https://opentdb.com/api.php?amount=10")
+	if err != nil {
+		return nil, err
+	}
 	bytes, err := ioutil.ReadAll(resp.Body)
 
 	var data questionRequestResponse
@@ -121,4 +112,8 @@ func (q *Quiz) getAllAnswers(incorrectAnswers []string, correctAnswer string) st
 		answers += "- " + answer + "\r\n"
 	}
 	return answers
+}
+
+func sameAnswer(userAnswer string, correctAnswer string) bool {
+	return strings.ToLower(strings.TrimSpace(userAnswer)) == strings.ToLower(html.UnescapeString(strings.TrimSpace(correctAnswer)))
 }
