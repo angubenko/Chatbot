@@ -40,6 +40,7 @@ type Quiz struct {
 	OutgoingMessages chan Message
 	IncomingAnswers  chan UserAnswer
 	DoneQuiz         chan int64
+	AddScore         chan string
 }
 
 func (q *Quiz) serveQuiz() {
@@ -59,9 +60,10 @@ func (q *Quiz) serveQuiz() {
 				case userAnswer := <-q.IncomingAnswers:
 					if sameAnswer(userAnswer.answer, question.CorrectAnswer) {
 						q.OutgoingMessages <- Message{chatID: q.ChatID, message: "Correct"}
+						q.AddScore <- userAnswer.name
 					} else {
 						q.OutgoingMessages <- Message{chatID: q.ChatID,
-							message: "Wrong, correct answer is " + question.CorrectAnswer}
+							message: "Wrong, correct answer is " + "\"" + question.CorrectAnswer + "\""}
 					}
 					return
 				case <-timer.C:
