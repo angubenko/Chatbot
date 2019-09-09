@@ -1,9 +1,7 @@
 package main
 
 import (
-	"encoding/json"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
-	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
@@ -14,30 +12,19 @@ const (
 	cacheFile string = "userScore.cache"
 )
 
-func loadUserScoreFromCache() (map[string]int, error) {
-	bytes, err := ioutil.ReadFile(cacheFile)
-	userScore := make(map[string]int)
-	err = json.Unmarshal(bytes, &userScore)
-	return userScore, err
-}
-
-func updateUserScore(userScore map[string]int, addUserScore chan string, userScoreMux *sync.Mutex) {
-	for {
-		userName := <-addUserScore
-		userScoreMux.Lock()
-		userScore[userName] += 1
-		jsonData, _ := json.Marshal(userScore)
-		ioutil.WriteFile(cacheFile, jsonData, 0644)
-		userScoreMux.Unlock()
-	}
-}
-
 func main() {
 	bot, err := tgbotapi.NewBotAPI(os.Getenv("BOT_TOKEN"))
 	if err != nil {
 		log.Panic(err)
 	}
 	log.Printf("Authorized on account %s", bot.Self.UserName)
+
+	addUserScore := make(chan string)
+	scoreTracker := ScoreTracker{cacheFile: cacheFile, scoreUpdates: addUserScore}
+	err = scoreTracker.start()
+	if err != nil {
+		log.Panic(err)
+	}
 
 	var quizInProgressMux sync.Mutex
 	quizInProgress := make(map[int64]*Quiz)
@@ -62,15 +49,6 @@ func main() {
 			}
 		}
 	}()
-
-	var userScoreMux sync.Mutex
-	userScore, err := loadUserScoreFromCache()
-	if err != nil {
-		log.Println("error: ", err)
-		userScore = make(map[string]int)
-	}
-	addUserScore := make(chan string)
-	go updateUserScore(userScore, addUserScore, &userScoreMux)
 
 	updates, err := bot.GetUpdatesChan(tgbotapi.UpdateConfig{Offset: 0, Timeout: 60})
 	for update := range updates {
@@ -98,25 +76,26 @@ func main() {
 					}
 					quizInProgressMux.Unlock()
 				}
+			case "stop":
+				{
+					//TODO implement
+				}
+			case "skip":
+				{
+					//TODO implement
+				}
 			case "help":
 				{
 					messagesToSend <- Message{
 						chatID: chatID,
-						message: "This is a quiz Bot. Use: \r " +
-							"start to start game \r " +
-							"score to check score",
+						message: "This is a Quiz Bot. Use: \r\n " +
+							"/start to start game \r\n" +
+							"/score to check score",
 					}
 				}
 			case "score":
 				{
-					userScoreMux.Lock()
-					var message string
-					if score, ok := userScore[update.Message.From.UserName]; ok {
-						message = "Your score is " + strconv.Itoa(score)
-					} else {
-						message = "Sorry, you haven't played this game yet."
-					}
-					userScoreMux.Unlock()
+					message := strconv.Itoa(scoreTracker.getScore(update.Message.From.UserName))
 					messagesToSend <- Message{
 						chatID:  chatID,
 						message: message,
