@@ -24,6 +24,7 @@ func (st *ScoreTracker) start() error {
 	err := st.loadFromCache()
 	if err != nil {
 		log.Println("error: couldn't load from cache")
+		st.score = make(map[string]int)
 	}
 	go st.trackScore()
 	return nil
@@ -42,7 +43,11 @@ func (st *ScoreTracker) trackScore() {
 			return
 		}
 		st.mux.Lock()
-		st.score[userName] += 1
+		if _, ok := st.score[userName]; ok {
+			st.score[userName] += 1
+		} else {
+			st.score[userName] = 1
+		}
 		jsonData, _ := json.Marshal(st.score)
 		ioutil.WriteFile(cacheFile, jsonData, 0644)
 		st.mux.Unlock()
