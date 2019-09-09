@@ -4,10 +4,15 @@ import (
 	"encoding/json"
 	"html"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
 	"strings"
 	"time"
+)
+
+const (
+	timeoutSeconds time.Duration = 1
 )
 
 type Quiz struct {
@@ -23,10 +28,10 @@ func (q *Quiz) serveQuiz() {
 	q.Questions, _ = q.requestQuestions()
 	q.IncomingAnswers = make(chan UserAnswer)
 	defer close(q.IncomingAnswers)
-
+	log.Println("Started quiz for chat ", q.ChatID)
 	for _, question := range q.Questions {
 		func() {
-			timer := time.NewTimer(30 * time.Second)
+			timer := time.NewTimer(timeoutSeconds * time.Second)
 			defer timer.Stop()
 
 			message := question.Question + "\r\n" + q.getAllAnswers(question.IncorrectAnswers, question.CorrectAnswer)
