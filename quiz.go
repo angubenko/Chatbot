@@ -7,12 +7,13 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
 
 const (
-	timeoutSeconds time.Duration = 60
+	timeoutInSeconds time.Duration = 60
 )
 
 type Quiz struct {
@@ -29,24 +30,48 @@ func (q *Quiz) serveQuiz() {
 	q.IncomingAnswers = make(chan UserAnswer)
 	defer close(q.IncomingAnswers)
 	log.Println("Started quiz for chat ", q.ChatID)
-	for _, question := range q.Questions {
-		func() {
-			timer := time.NewTimer(timeoutSeconds * time.Second)
-			defer timer.Stop()
+	earlyTermination := false
 
+	for _, question := range q.Questions {
+		if earlyTermination {
+			break
+		}
+
+		func() {
+			timer := time.NewTimer(timeoutInSeconds * time.Second)
+			defer timer.Stop()
 			message := question.Question + "\r\n" + q.getAllAnswers(question.IncorrectAnswers, question.CorrectAnswer)
 			q.OutgoingMessages <- Message{chatID: q.ChatID, message: message}
 			for {
 				select {
 				case userAnswer := <-q.IncomingAnswers:
-					if sameAnswer(userAnswer.answer, question.CorrectAnswer) {
-						q.OutgoingMessages <- Message{chatID: q.ChatID, message: "Correct"}
-						q.AddScore <- userAnswer.name
-					} else {
-						q.OutgoingMessages <- Message{chatID: q.ChatID,
-							message: "Wrong, correct answer is " + "\"" + question.CorrectAnswer + "\""}
+					switch userAnswer.answerType {
+					case Reply:
+						{
+							if sameAnswer(userAnswer.answer, question.CorrectAnswer) {
+								q.OutgoingMessages <- Message{chatID: q.ChatID, message: "Correct"}
+								q.AddScore <- userAnswer.name
+							} else {
+								q.OutgoingMessages <- Message{chatID: q.ChatID,
+									message: "Wrong, correct answer is " + "\"" + question.CorrectAnswer + "\""}
+							}
+							return
+						}
+					case Skip:
+						{
+							q.OutgoingMessages <- Message{chatID: q.ChatID,
+								message: "Skipping the question. The correct answer is " +
+									"\"" + question.CorrectAnswer + "\""}
+							return
+						}
+					case Stop:
+						{
+							q.OutgoingMessages <- Message{chatID: q.ChatID,
+								message: "Stopping the quiz"}
+						}
+						earlyTermination = true
+						return
 					}
-					return
 				case <-timer.C:
 					q.OutgoingMessages <- Message{chatID: q.ChatID,
 						message: "No one answered the question. The correct answer is " +
@@ -91,8 +116,8 @@ func (q *Quiz) getAllAnswers(incorrectAnswers []string, correctAnswer string) st
 	})
 
 	var answers string
-	for _, answer := range shuffledAnswers {
-		answers += "- " + answer + "\r\n"
+	for i, answer := range shuffledAnswers {
+		answers += strconv.Itoa(i+1) + ". " + answer + "\r\n"
 	}
 	return answers
 }

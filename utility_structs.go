@@ -1,5 +1,13 @@
 package main
 
+type AnswerType int
+
+const (
+	Reply AnswerType = iota
+	Skip
+	Stop
+)
+
 type questionRequestResponse struct {
 	ResponseCode int        `json:"response_code"`
 	Results      []Question `json:"results"`
@@ -15,8 +23,9 @@ type Question struct {
 }
 
 type UserAnswer struct {
-	name   string
-	answer string
+	name       string
+	answerType AnswerType
+	answer     string
 }
 
 type Message struct {

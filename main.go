@@ -13,7 +13,7 @@ const (
 )
 
 func main() {
-	bot, err := tgbotapi.NewBotAPI(os.Getenv("BOT_TOKEN"))
+	bot, err := tgbotapi.NewBotAPI(os.Getenv("BOT_TOKEN_DEV"))
 	if err != nil {
 		log.Panic(err)
 	}
@@ -78,11 +78,29 @@ func main() {
 				}
 			case "stop":
 				{
-					//TODO implement
+					quizInProgressMux.Lock()
+					if quiz, ok := quizInProgress[chatID]; ok {
+						quiz.IncomingAnswers <- UserAnswer{name: update.Message.From.UserName, answerType: Stop}
+					} else {
+						messagesToSend <- Message{
+							chatID:  chatID,
+							message: "No quiz to stop",
+						}
+					}
+					quizInProgressMux.Unlock()
 				}
 			case "skip":
 				{
-					//TODO implement
+					quizInProgressMux.Lock()
+					if quiz, ok := quizInProgress[chatID]; ok {
+						quiz.IncomingAnswers <- UserAnswer{name: update.Message.From.UserName, answerType: Skip}
+					} else {
+						messagesToSend <- Message{
+							chatID:  chatID,
+							message: "No quiz running",
+						}
+					}
+					quizInProgressMux.Unlock()
 				}
 			case "help":
 				{
@@ -107,7 +125,7 @@ func main() {
 
 		quizInProgressMux.Lock()
 		if quiz, ok := quizInProgress[chatID]; ok {
-			quiz.IncomingAnswers <- UserAnswer{name: update.Message.From.UserName, answer: update.Message.Text}
+			quiz.IncomingAnswers <- UserAnswer{name: update.Message.From.UserName, answerType: Reply, answer: update.Message.Text}
 		}
 		quizInProgressMux.Unlock()
 	}
