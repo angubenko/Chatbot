@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -40,22 +39,39 @@ func (q *Quiz) serveQuiz() {
 		func() {
 			timer := time.NewTimer(timeoutInSeconds * time.Second)
 			defer timer.Stop()
-			message := question.Question + "\r\n" + q.getAllAnswers(question.IncorrectAnswers, question.CorrectAnswer)
-			q.OutgoingMessages <- Message{chatID: q.ChatID, message: message}
+			userTried := make(map[string]bool)
+
+			answersList, answersMessage := q.getAllAnswers(question.IncorrectAnswers, question.CorrectAnswer)
+			q.OutgoingMessages <- Message{chatID: q.ChatID, message: question.Question + "\r\n" + answersMessage}
+
 			for {
 				select {
 				case userAnswer := <-q.IncomingAnswers:
 					switch userAnswer.answerType {
 					case Reply:
 						{
-							if sameAnswer(userAnswer.answer, question.CorrectAnswer) {
-								q.OutgoingMessages <- Message{chatID: q.ChatID, message: "Correct"}
+							if _, ok := userTried[userAnswer.name]; ok {
+								q.OutgoingMessages <- Message{chatID: q.ChatID,
+									message: "You already attempted answering this question."}
+								continue
+							}
+
+							answerIdx, _ := strconv.Atoi(userAnswer.answer)
+							if answerIdx == 0 || answerIdx > len(answersList) {
+								q.OutgoingMessages <- Message{chatID: q.ChatID,
+									message: "Please provide number corresponding to selected answer."}
+								continue
+							}
+
+							userTried[userAnswer.name] = true
+							if answersList[answerIdx-1] == question.CorrectAnswer {
+								q.OutgoingMessages <- Message{chatID: q.ChatID, message: "Correct!"}
 								q.AddScore <- userAnswer.name
+								return
 							} else {
 								q.OutgoingMessages <- Message{chatID: q.ChatID,
-									message: "Wrong, correct answer is " + "\"" + question.CorrectAnswer + "\""}
+									message: "Wrong."}
 							}
-							return
 						}
 					case Skip:
 						{
@@ -107,7 +123,7 @@ func (q *Quiz) requestQuestions() ([]Question, error) {
 	return data.Results, err
 }
 
-func (q *Quiz) getAllAnswers(incorrectAnswers []string, correctAnswer string) string {
+func (q *Quiz) getAllAnswers(incorrectAnswers []string, correctAnswer string) ([]string, string) {
 	shuffledAnswers := incorrectAnswers
 	shuffledAnswers = append(shuffledAnswers, correctAnswer)
 	rand.Seed(time.Now().UnixNano())
@@ -115,13 +131,10 @@ func (q *Quiz) getAllAnswers(incorrectAnswers []string, correctAnswer string) st
 		shuffledAnswers[i], shuffledAnswers[j] = shuffledAnswers[j], shuffledAnswers[i]
 	})
 
-	var answers string
+	var message string
 	for i, answer := range shuffledAnswers {
-		answers += strconv.Itoa(i+1) + ". " + answer + "\r\n"
+		message += strconv.Itoa(i+1) + ". " + answer + "\r\n"
 	}
-	return answers
-}
 
-func sameAnswer(userAnswer string, correctAnswer string) bool {
-	return strings.ToLower(strings.TrimSpace(userAnswer)) == strings.ToLower(html.UnescapeString(strings.TrimSpace(correctAnswer)))
+	return shuffledAnswers, message
 }
