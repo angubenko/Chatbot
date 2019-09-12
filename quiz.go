@@ -36,66 +36,59 @@ func (q *Quiz) serveQuiz() {
 			break
 		}
 
-		func() {
-			timer := time.NewTimer(timeoutInSeconds * time.Second)
-			defer timer.Stop()
-			userTried := make(map[string]bool)
+		timer := time.NewTimer(timeoutInSeconds * time.Second)
 
-			answersList, answersMessage := q.getAllAnswers(question.IncorrectAnswers, question.CorrectAnswer)
-			q.OutgoingMessages <- Message{chatID: q.ChatID, message: question.Question + "\r\n" + answersMessage}
+		userTried := make(map[string]bool)
 
-			for {
-				select {
-				case userAnswer := <-q.IncomingAnswers:
-					switch userAnswer.answerType {
-					case Reply:
-						{
-							if _, ok := userTried[userAnswer.name]; ok {
-								q.OutgoingMessages <- Message{chatID: q.ChatID,
-									message: "You already attempted answering this question."}
-								continue
-							}
+		answersList, answersMessage := q.getAllAnswers(question.IncorrectAnswers, question.CorrectAnswer)
+		q.OutgoingMessages <- Message{chatID: q.ChatID, message: question.Question + "\r\n" + answersMessage}
 
-							answerIdx, _ := strconv.Atoi(userAnswer.answer)
-							if answerIdx == 0 || answerIdx > len(answersList) {
-								q.OutgoingMessages <- Message{chatID: q.ChatID,
-									message: "Please provide number corresponding to selected answer."}
-								continue
-							}
-
-							userTried[userAnswer.name] = true
-							if answersList[answerIdx-1] == question.CorrectAnswer {
-								q.OutgoingMessages <- Message{chatID: q.ChatID, message: "Correct!"}
-								q.AddScore <- userAnswer.name
-								return
-							} else {
-								q.OutgoingMessages <- Message{chatID: q.ChatID,
-									message: "Wrong."}
-							}
-						}
-					case Skip:
-						{
-							q.OutgoingMessages <- Message{chatID: q.ChatID,
-								message: "Skipping the question. The correct answer is " +
-									"\"" + question.CorrectAnswer + "\""}
-							return
-						}
-					case Stop:
-						{
-							q.OutgoingMessages <- Message{chatID: q.ChatID,
-								message: "Stopping the quiz"}
-						}
-						earlyTermination = true
-						return
+		for {
+			select {
+			case userAnswer := <-q.IncomingAnswers:
+				switch userAnswer.answerType {
+				case Reply:
+					if _, ok := userTried[userAnswer.name]; ok {
+						q.OutgoingMessages <- Message{chatID: q.ChatID,
+							message: "You already attempted answering this question."}
+						continue
 					}
-				case <-timer.C:
+
+					answerIdx, _ := strconv.Atoi(userAnswer.answer)
+					if answerIdx == 0 || answerIdx > len(answersList) {
+						q.OutgoingMessages <- Message{chatID: q.ChatID,
+							message: "Please provide number corresponding to selected answer."}
+						continue
+					}
+
+					userTried[userAnswer.name] = true
+					if answersList[answerIdx-1] == question.CorrectAnswer {
+						q.OutgoingMessages <- Message{chatID: q.ChatID, message: "Correct!"}
+						q.AddScore <- userAnswer.name
+						break
+					} else {
+						q.OutgoingMessages <- Message{chatID: q.ChatID,
+							message: "Wrong."}
+					}
+				case Skip:
 					q.OutgoingMessages <- Message{chatID: q.ChatID,
-						message: "No one answered the question. The correct answer is " +
+						message: "Skipping the question. The correct answer is " +
 							"\"" + question.CorrectAnswer + "\""}
-					return
+					break
+				case Stop:
+					q.OutgoingMessages <- Message{chatID: q.ChatID,
+						message: "Stopping the quiz"}
+					earlyTermination = true
+					break
 				}
+			case <-timer.C:
+				q.OutgoingMessages <- Message{chatID: q.ChatID,
+					message: "No one answered the question. The correct answer is " +
+						"\"" + question.CorrectAnswer + "\""}
+				break
 			}
-		}()
+		}
+		timer.Stop()
 	}
 	q.DoneQuiz <- q.ChatID
 	q.OutgoingMessages <- Message{chatID: q.ChatID, message: "Quiz has ended!"}
