@@ -48,16 +48,15 @@ func (q *Quiz) serveQuiz() {
 			case userAnswer := <-q.IncomingAnswers:
 				switch userAnswer.answerType {
 				case Reply:
-					if _, ok := userTried[userAnswer.name]; ok {
-						q.OutgoingMessages <- Message{chatID: q.ChatID,
-							message: "You already attempted answering this question."}
-						continue
-					}
 
 					answerIdx, _ := strconv.Atoi(userAnswer.answer)
 					if answerIdx == 0 || answerIdx > len(answersList) {
+						continue
+					}
+
+					if _, ok := userTried[userAnswer.name]; ok {
 						q.OutgoingMessages <- Message{chatID: q.ChatID,
-							message: "Please provide number corresponding to selected answer."}
+							message: "You already attempted answering this question."}
 						continue
 					}
 
@@ -68,7 +67,7 @@ func (q *Quiz) serveQuiz() {
 						break
 					} else {
 						q.OutgoingMessages <- Message{chatID: q.ChatID,
-							message: "Wrong."}
+							message: "Wrong answer"}
 					}
 				case Skip:
 					q.OutgoingMessages <- Message{chatID: q.ChatID,
