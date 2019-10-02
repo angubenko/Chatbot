@@ -11,8 +11,8 @@ import (
 // ScoreTracker waits for updates on a user provided channel scoreUpdates.
 // Whenever update occurs, ScoreTracker updates value in score map and updates cache.
 type ScoreTracker struct {
-	scoreUpdates chan string
-	score        map[string]int
+	scoreUpdates chan UserID
+	score        map[UserID]int
 	mux          sync.Mutex
 	cacheFile    string
 }
@@ -24,7 +24,7 @@ func (st *ScoreTracker) start() error {
 	err := st.loadFromCache()
 	if err != nil {
 		log.Println("error: couldn't load from cache")
-		st.score = make(map[string]int)
+		st.score = make(map[UserID]int)
 	}
 	go st.trackScore()
 	return nil
@@ -38,15 +38,15 @@ func (st *ScoreTracker) loadFromCache() error {
 
 func (st *ScoreTracker) trackScore() {
 	for {
-		userName, ok := <-st.scoreUpdates
+		userID, ok := <-st.scoreUpdates
 		if !ok {
 			return
 		}
 		st.mux.Lock()
-		if _, ok := st.score[userName]; ok {
-			st.score[userName] += 1
+		if _, ok := st.score[userID]; ok {
+			st.score[userID] += 1
 		} else {
-			st.score[userName] = 1
+			st.score[userID] = 1
 		}
 		jsonData, _ := json.Marshal(st.score)
 		ioutil.WriteFile(cacheFile, jsonData, 0644)
@@ -54,10 +54,13 @@ func (st *ScoreTracker) trackScore() {
 	}
 }
 
-func (st *ScoreTracker) getScore(userName string) int {
+func (st *ScoreTracker) getScore(userName string, chatID int64) int {
 	st.mux.Lock()
 	var score int
-	if val, ok := st.score[userName]; ok {
+	if val, ok := st.score[UserID{
+		chatID:   chatID,
+		userName: userName,
+	}]; ok {
 		score = val
 	}
 	st.mux.Unlock()

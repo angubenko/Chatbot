@@ -1,5 +1,10 @@
 package main
 
+import (
+	"strconv"
+	"strings"
+)
+
 type AnswerType int
 
 const (
@@ -31,4 +36,21 @@ type UserAnswer struct {
 type Message struct {
 	chatID  int64
 	message string
+}
+
+type UserID struct {
+	chatID   int64
+	userName string
+}
+
+func (u UserID) MarshalText() (text []byte, err error) {
+	return []byte(strconv.Itoa(int(u.chatID)) + "-" + u.userName), nil
+}
+
+func (u *UserID) UnmarshalText(text []byte) error {
+	parsedText := strings.Split(string(text), "-")
+	chatId, err := strconv.Atoi(parsedText[0])
+	u.chatID = int64(chatId)
+	u.userName = parsedText[1]
+	return err
 }

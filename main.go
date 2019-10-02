@@ -19,7 +19,7 @@ func main() {
 	}
 	log.Printf("Authorized on account %s", bot.Self.UserName)
 
-	addUserScore := make(chan string)
+	addUserScore := make(chan UserID)
 	scoreTracker := ScoreTracker{cacheFile: cacheFile, scoreUpdates: addUserScore}
 	err = scoreTracker.start()
 	if err != nil {
@@ -113,7 +113,7 @@ func main() {
 				}
 			case "score":
 				{
-					message := strconv.Itoa(scoreTracker.getScore(update.Message.From.UserName))
+					message := strconv.Itoa(scoreTracker.getScore(update.Message.From.UserName, chatID))
 					messagesToSend <- Message{
 						chatID:  chatID,
 						message: message,
