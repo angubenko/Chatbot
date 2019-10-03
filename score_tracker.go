@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"log"
+	"os"
 	"sort"
 	"sync"
 )
@@ -60,7 +61,8 @@ func (st *ScoreTracker) trackScore() {
 			st.userScoreByChat[userID.chatID][userID.name] = 1
 		}
 		jsonData, _ := json.Marshal(st.userScoreByChat)
-		ioutil.WriteFile(cacheFile, jsonData, 0644)
+		ioutil.WriteFile(tmpCacheFile, jsonData, 0644)
+		os.Rename(tmpCacheFile, cacheFile)
 		st.mux.Unlock()
 	}
 }

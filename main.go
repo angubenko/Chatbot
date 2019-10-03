@@ -9,7 +9,8 @@ import (
 )
 
 const (
-	cacheFile string = "userScore.cache"
+	cacheFile    string = "userScore.cache"
+	tmpCacheFile string = "userScoreTmp.cache"
 )
 
 func main() {
