@@ -9,7 +9,6 @@ type AnswerType int
 
 const (
 	Reply AnswerType = iota
-	Skip
 	Stop
 )
 

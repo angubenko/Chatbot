@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	timeoutInSeconds time.Duration = 60
+	timeoutInSeconds time.Duration = 15
 )
 
 type Quiz struct {
@@ -50,7 +50,6 @@ func (q *Quiz) serveQuiz() {
 				case userAnswer := <-q.IncomingAnswers:
 					switch userAnswer.answerType {
 					case Reply:
-
 						answerIdx, _ := strconv.Atoi(userAnswer.answer)
 						if answerIdx == 0 || answerIdx > len(answersList) {
 							continue
@@ -74,11 +73,6 @@ func (q *Quiz) serveQuiz() {
 							q.OutgoingMessages <- Message{chatID: q.ChatID,
 								message: "Wrong answer"}
 						}
-					case Skip:
-						q.OutgoingMessages <- Message{chatID: q.ChatID,
-							message: "Skipping the question. The correct answer is " +
-								"\"" + question.CorrectAnswer + "\""}
-						return
 					case Stop:
 						log.Println("Stopping the quiz on channel ", q.ChatID)
 						earlyTermination = true

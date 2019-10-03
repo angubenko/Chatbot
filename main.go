@@ -89,19 +89,6 @@ func main() {
 					}
 					quizInProgressMux.Unlock()
 				}
-			case "skip":
-				{
-					quizInProgressMux.Lock()
-					if quiz, ok := quizInProgress[chatID]; ok {
-						quiz.IncomingAnswers <- UserAnswer{name: update.Message.From.UserName, answerType: Skip}
-					} else {
-						messagesToSend <- Message{
-							chatID:  chatID,
-							message: "No quiz running",
-						}
-					}
-					quizInProgressMux.Unlock()
-				}
 			case "help":
 				{
 					messagesToSend <- Message{
