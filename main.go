@@ -106,6 +106,18 @@ func main() {
 						message: message,
 					}
 				}
+			case "top":
+				{
+					topPerformers := scoreTracker.getTopPerformersByChatID(chatID)
+					message := "Top performers \n"
+					for i, user := range topPerformers {
+						message += strconv.Itoa(i+1) + ". " + user.name + " - " + strconv.Itoa(user.score) + "\n"
+					}
+					messagesToSend <- Message{
+						chatID:  chatID,
+						message: message,
+					}
+				}
 			}
 			continue
 		}

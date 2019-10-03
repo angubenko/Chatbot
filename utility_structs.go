@@ -1,10 +1,5 @@
 package main
 
-import (
-	"strconv"
-	"strings"
-)
-
 type AnswerType int
 
 const (
@@ -38,18 +33,11 @@ type Message struct {
 }
 
 type UserID struct {
-	chatID   int64
-	userName string
+	chatID int64
+	name   string
 }
 
-func (u UserID) MarshalText() (text []byte, err error) {
-	return []byte(strconv.Itoa(int(u.chatID)) + "-" + u.userName), nil
-}
-
-func (u *UserID) UnmarshalText(text []byte) error {
-	parsedText := strings.Split(string(text), "-")
-	chatId, err := strconv.Atoi(parsedText[0])
-	u.chatID = int64(chatId)
-	u.userName = parsedText[1]
-	return err
+type UserScore struct {
+	name  string
+	score int
 }

@@ -65,8 +65,8 @@ func (q *Quiz) serveQuiz() {
 						if answersList[answerIdx-1] == question.CorrectAnswer {
 							q.OutgoingMessages <- Message{chatID: q.ChatID, message: "Correct!"}
 							q.AddScore <- UserID{
-								chatID:   q.ChatID,
-								userName: userAnswer.name,
+								chatID: q.ChatID,
+								name:   userAnswer.name,
 							}
 							return
 						} else {
