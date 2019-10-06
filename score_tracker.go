@@ -10,31 +10,37 @@ import (
 	"sync"
 )
 
-// ScoreTracker waits for updates on a user provided channel scoreUpdates.
-// Whenever update occurs, ScoreTracker updates value in score map and updates cache.
-
 const (
 	nTopPerformers int = 5
 )
 
 type ScoreTracker struct {
-	scoreUpdates    chan UserID
+	addUserScore    chan UserID
 	userScoreByChat map[int64]map[string]int
 	mux             sync.Mutex
 	cacheFile       string
 }
 
-func (st *ScoreTracker) start() error {
-	if st.scoreUpdates == nil || st.cacheFile == "" {
-		return errors.New("error: scoreUpdates channel and cacheFile must be set")
+func NewScoreTracker(addUserScore chan UserID, cacheFile string) (ScoreTracker, error) {
+	if addUserScore == nil || cacheFile == "" {
+		return ScoreTracker{}, errors.New("error: addUserScore channel and cacheFile are required")
 	}
+	userScoreByChat := make(map[int64]map[string]int)
+
+	return ScoreTracker{
+		addUserScore:    addUserScore,
+		userScoreByChat: userScoreByChat,
+		mux:             sync.Mutex{},
+		cacheFile:       cacheFile,
+	}, nil
+}
+
+func (st *ScoreTracker) start() {
 	err := st.loadFromCache()
 	if err != nil {
-		log.Println("error: couldn't load from cache, creating new cache")
-		st.userScoreByChat = make(map[int64]map[string]int)
+		log.Println("warning: couldn't load from cache, creating new cache")
 	}
 	go st.trackScore()
-	return nil
 }
 
 func (st *ScoreTracker) loadFromCache() error {
@@ -45,10 +51,11 @@ func (st *ScoreTracker) loadFromCache() error {
 
 func (st *ScoreTracker) trackScore() {
 	for {
-		userID, ok := <-st.scoreUpdates
+		userID, ok := <-st.addUserScore
 		if !ok {
 			return
 		}
+
 		st.mux.Lock()
 		if _, ok := st.userScoreByChat[userID.chatID]; ok {
 			if _, ok := st.userScoreByChat[userID.chatID][userID.name]; ok {
@@ -60,9 +67,13 @@ func (st *ScoreTracker) trackScore() {
 			st.userScoreByChat[userID.chatID] = make(map[string]int)
 			st.userScoreByChat[userID.chatID][userID.name] = 1
 		}
+
 		jsonData, _ := json.Marshal(st.userScoreByChat)
-		ioutil.WriteFile(tmpCacheFile, jsonData, 0644)
-		os.Rename(tmpCacheFile, cacheFile)
+		err := ioutil.WriteFile(tmpCacheFile, jsonData, 0644)
+		err = os.Rename(tmpCacheFile, cacheFile)
+		if err != nil {
+			log.Println("error: error occurred during saving cache to disk")
+		}
 		st.mux.Unlock()
 	}
 }

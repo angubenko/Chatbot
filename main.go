@@ -14,18 +14,18 @@ const (
 )
 
 func main() {
-	bot, err := tgbotapi.NewBotAPI(os.Getenv("BOT_TOKEN"))
+	bot, err := tgbotapi.NewBotAPI(os.Getenv("BOT_TOKEN_DEV"))
 	if err != nil {
 		log.Panic(err)
 	}
 	log.Printf("Authorized on account %s", bot.Self.UserName)
 
 	addUserScore := make(chan UserID)
-	scoreTracker := ScoreTracker{cacheFile: cacheFile, scoreUpdates: addUserScore}
-	err = scoreTracker.start()
+	scoreTracker, err := NewScoreTracker(addUserScore, cacheFile)
 	if err != nil {
 		log.Panic(err)
 	}
+	scoreTracker.start()
 
 	var quizInProgressMux sync.Mutex
 	quizInProgress := make(map[int64]*Quiz)
