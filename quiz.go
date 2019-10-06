@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	timeoutInSeconds time.Duration = 15
+	timeoutInSeconds time.Duration = 30
 )
 
 type Quiz struct {
