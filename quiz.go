@@ -86,6 +86,7 @@ func (q *Quiz) serveQuiz() {
 				}
 			}
 		}()
+		time.Sleep(1 * time.Second)
 	}
 	q.DoneQuiz <- q.ChatID
 	q.OutgoingMessages <- Message{chatID: q.ChatID, message: "Quiz has ended!"}
